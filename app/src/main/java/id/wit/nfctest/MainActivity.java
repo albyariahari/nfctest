@@ -9,16 +9,17 @@ import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.nfc.tech.Ndef;
+import android.nfc.tech.NdefFormatable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -84,8 +85,9 @@ public class MainActivity extends AppCompatActivity {
          *
          * In our case this method gets called, when the user attaches a Tag to the device.
          */
-//        super.onNewIntent(intent);
+        super.onNewIntent(intent);
         handleIntent(intent);
+//        super.onNewIntent(intent);
     }
 
     private void handleIntent(Intent intent) {
@@ -109,8 +111,29 @@ public class MainActivity extends AppCompatActivity {
             String searchedTech = Ndef.class.getName();
 
             for (String tech : techList) {
+                Log.d(TAG, "handleIntent tech list : " + tech);
                 if (searchedTech.equals(tech)) {
                     new NdefReaderTask().execute(tag);
+                    break;
+                } else if (tech.equals(NdefFormatable.class.getName())) {
+                    NdefFormatable ndefFormatable = NdefFormatable.get(tag);
+    
+                    if (ndefFormatable != null) {
+                        try {
+                            ndefFormatable.connect();
+                            Log.d(TAG, "handleIntent: " + ndefFormatable.isConnected());
+                            ndefFormatable.isConnected();
+//                            ndefFormatable.format(new NdefMessage(NdefRecord.createTextRecord("en", "ABCD")));
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        } finally {
+                            try {
+                                ndefFormatable.close();
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
                     break;
                 }
             }
@@ -125,8 +148,17 @@ public class MainActivity extends AppCompatActivity {
         final Intent intent = new Intent(activity.getApplicationContext(), activity.getClass());
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        final PendingIntent pendingIntent = PendingIntent.getActivity(activity.getApplicationContext(), 0, intent, 0);
-
+//        final PendingIntent pendingIntent = PendingIntent.getActivity(activity.getApplicationContext(), 0, intent, 0);
+    
+        PendingIntent pendingIntent = null;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            pendingIntent = PendingIntent.getActivity
+                    (activity.getApplicationContext(), 0, intent, PendingIntent.FLAG_MUTABLE);
+        } else {
+            pendingIntent = PendingIntent.getActivity
+                    (activity.getApplicationContext(), 0, intent, PendingIntent.FLAG_ONE_SHOT);
+        }
+        
         IntentFilter[] filters = new IntentFilter[1];
         String[][] techList = new String[][]{};
 
