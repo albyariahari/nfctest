@@ -8,18 +8,22 @@ import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
+import android.nfc.tech.IsoDep;
 import android.nfc.tech.Ndef;
-import android.nfc.tech.NdefFormatable;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.io.UnsupportedEncodingException;
-import java.util.Arrays;
-
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.apache.commons.codec.binary.Hex;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -64,6 +68,91 @@ public class MainActivity extends AppCompatActivity {
          * an IllegalStateException is thrown.
          */
         setupForegroundDispatch(this, mNfcAdapter);
+
+        Bundle options = new Bundle();
+        options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 500);
+
+        mNfcAdapter.enableReaderMode(
+                this,
+                new NfcAdapter.ReaderCallback() {
+                    @Override
+                    public void onTagDiscovered(final Tag tag) {
+//                        IsoDep isoDep = IsoDep.get(tag);
+                        // Connect and perform rest of communication
+
+
+                        byte[] APDUCommand = {
+                                (byte) 0x00, // CLA Class
+                                (byte) 0xA4, // INS Instruction
+                                (byte) 0x04, // P1  Parameter 1
+                                (byte) 0x00, // P2  Parameter 2
+                                (byte) 0x07, // Length
+                                (byte) 0xA0,0x00,0x00,0x00,0x03,0x10,0x10 // AID
+                        };
+
+//                        String item = "00 A4 04 00 0E 325041592E5359532E4444463031 00";
+//                        String commandWithoutSpace = item.replace(" ", "");
+//                        byte[] APDUCommand = DatatypeConverter.parseHexBinary(commandWithoutSpace);
+
+//                        String hex = "00 A4 04 00 07 A0000000031010 00";
+//                        String commandWithoutSpace = hex.replace(" ", "");
+//                        byte[] APDUCommand = new byte[0];
+//                        try {
+//                            APDUCommand = Hex.decodeHex(commandWithoutSpace.toCharArray());
+//                        } catch (DecoderException e) {
+//                            e.printStackTrace();
+//                        }
+
+                        IsoDep iso = IsoDep.get(tag);
+                        try {
+                            iso.connect();
+                            Log.d(TAG, "handleIntent: " + iso.isConnected());
+                            byte[] result = iso.transceive(APDUCommand);
+                            Log.d(TAG, "handleIntent result 1 : " + Arrays.toString(result));
+                            Log.d(TAG, "handleIntent result 1 : " + Arrays.toString(Hex.encodeHex(result)));
+                            Log.d(TAG, "handleIntent result 1 enc : " + Hex.encodeHexString(result));
+                            Log.d(TAG, "handleIntent result 1 : " + new String(result, StandardCharsets.UTF_8));
+
+                            int len = result.length;
+                            byte[] data = new byte[len-2];
+                            System.arraycopy(result, 0, data, 0, len-2);
+                            String str = new String(data).trim();
+                            Log.d(TAG, "handleIntent result 1 str : " + str);
+
+                            byte[] GET_STRING = {
+                                    (byte) 0x80, // CLA Class
+                                    0x04, // INS Instruction
+                                    0x00, // P1  Parameter 1
+                                    0x00, // P2  Parameter 2
+                                    0x10  // LE  maximal number of bytes expected in result
+                            };
+
+                            result = iso.transceive(GET_STRING);
+
+                            Log.d(TAG, "handleIntent result 2 : " + Arrays.toString(result));
+                            Log.d(TAG, "handleIntent result 2 : " + new String(result, StandardCharsets.UTF_8));
+                            Log.d(TAG, "handleIntent result 2 enc : " + Hex.encodeHexString(result));
+
+                            len = result.length;
+//                            if (!(result[len-2]==(byte)0x90&&result[len-1]==(byte) 0x00))
+//                                throw new RuntimeException("could not retrieve msisdn");
+
+                            data = new byte[len-2];
+                            System.arraycopy(result, 0, data, 0, len-2);
+                            str = new String(data, StandardCharsets.UTF_8).trim();
+                            Log.d(TAG, "handleIntent result 2 str : " + str);
+                            Log.d(TAG, "handleIntent result 1 str enc : " + Hex.encodeHexString(data));
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+
+
+                    }
+                },
+                NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+                options
+        );
     }
 
     @Override
@@ -112,28 +201,51 @@ public class MainActivity extends AppCompatActivity {
 
             for (String tech : techList) {
                 Log.d(TAG, "handleIntent tech list : " + tech);
-                if (searchedTech.equals(tech)) {
-                    new NdefReaderTask().execute(tag);
-                    break;
-                } else if (tech.equals(NdefFormatable.class.getName())) {
-                    NdefFormatable ndefFormatable = NdefFormatable.get(tag);
-    
-                    if (ndefFormatable != null) {
-                        try {
-                            ndefFormatable.connect();
-                            Log.d(TAG, "handleIntent: " + ndefFormatable.isConnected());
-                            ndefFormatable.isConnected();
-//                            ndefFormatable.format(new NdefMessage(NdefRecord.createTextRecord("en", "ABCD")));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        } finally {
-                            try {
-                                ndefFormatable.close();
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-                        }
+//                if (searchedTech.equals(tech)) {
+//                    new NdefReaderTask().execute(tag);
+//                    break;
+//                } else if (tech.equals(NdefFormatable.class.getName())) {
+//                    NdefFormatable ndefFormatable = NdefFormatable.get(tag);
+//
+//                    if (ndefFormatable != null) {
+//                        try {
+//                            ndefFormatable.connect();
+//                            Log.d(TAG, "handleIntent: " + ndefFormatable.isConnected());
+//                            ndefFormatable.isConnected();
+////                            ndefFormatable.format(new NdefMessage(NdefRecord.createTextRecord("en", "ABCD")));
+//                        } catch (Exception e) {
+//                            e.printStackTrace();
+//                        } finally {
+//                            try {
+//                                ndefFormatable.close();
+//                            } catch (Exception e) {
+//                                e.printStackTrace();
+//                            }
+//                        }
+//                    }
+//                    break;
+//                }
+                if (tech.equals(IsoDep.class.getName())) {
+
+                    byte[] APDUCommand = {
+                            (byte) 0x00, // CLA Class
+                            (byte) 0xA4, // INS Instruction
+                            (byte) 0x04, // P1  Parameter 1
+                            (byte) 0x00, // P2  Parameter 2
+                            (byte) 0x0A, // Length
+                            0x63,0x64,0x63,0x00,0x00,0x00,0x00,0x32,0x32,0x31 // AID
+                    };
+
+                    IsoDep iso = IsoDep.get(tag);
+                    try {
+                        iso.connect();
+                        Log.d(TAG, "handleIntent: " + iso.isConnected());
+                        byte[] result = iso.transceive(APDUCommand);
+                        Log.d(TAG, "handleIntent result : " + Arrays.toString(result));
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
+
                     break;
                 }
             }
@@ -177,6 +289,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static void stopForegroundDispatch(final Activity activity, NfcAdapter adapter) {
         adapter.disableForegroundDispatch(activity);
+        adapter.disableReaderMode(activity);
     }
 
     /**
