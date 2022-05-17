@@ -23,6 +23,8 @@ import org.apache.commons.codec.binary.Hex;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
@@ -130,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
 //                                    (byte) 0xb5, // INS Instruction
 //                                    (byte) 0x00, // P1  Parameter 1
 //                                    (byte) 0x00, // P2  Parameter 2
-//                                    (byte) 0x5a  // LE  maximal number of bytes expected in result
+//                                    (byte) 0x0a  // LE  maximal number of bytes expected in result
 //                            };
 
                             result = iso.transceive(GET_LAST_BALANCE);
@@ -139,6 +141,8 @@ public class MainActivity extends AppCompatActivity {
                             Log.d(TAG, "handleIntent result Last Balance Hex : " + Hex.encodeHexString(result));
                             Log.d(TAG, "handleIntent result Last Balance Hex : " + bytesToHex(result));
                             Log.d(TAG, "handleIntent result Last Balance String : " + new String(result, StandardCharsets.UTF_8));
+                            Log.d(TAG, "handleIntent result Last Balance BigInteger : " + new BigInteger(1, result).toString(16));
+                            Log.d(TAG, "handleIntent result Last Balance getDec : " + getDec(result));
 
                             int len = result.length;
                             if (!(result[len-2]==(byte)0x90&&result[len-1]==(byte) 0x00))
@@ -200,6 +204,59 @@ public class MainActivity extends AppCompatActivity {
                 NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
                 options
         );
+    }
+
+
+
+    private String getHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = bytes.length - 1; i >= 0; --i) {
+            int b = bytes[i] & 0xff;
+            if (b < 0x10)
+                sb.append('0');
+            sb.append(Integer.toHexString(b));
+            if (i > 0) {
+                sb.append(" ");
+            }
+        }
+        return sb.toString();
+    }
+
+    private String getHex2(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < bytes.length; i++) {
+            int b = bytes[i] & 0xff;
+            if (b < 0x10)
+                sb.append('0');
+            sb.append(Integer.toHexString(b));
+            if (i > 0) {
+                sb.append(" ");
+            }
+        }
+        return sb.toString();
+    }
+
+    private long getDec(byte[] bytes) {
+        long result = 0;
+        long factor = 1;
+        for (int i = 0; i < bytes.length; ++i) {
+            long value = bytes[i] & 0xffl;
+            result += value * factor;
+            factor *= 256l;
+        }
+        return result;
+    }
+
+    public static byte[] decode(String hex) {
+        String[] list=hex.split("(?<=\\G\\w{2})(?:\\s*)");
+        ByteBuffer buffer= ByteBuffer.allocate(list.length);
+        System.out.println(list.length);
+        for(String str: list) {
+            buffer.put(Byte.parseByte(str,16));
+            System.out.println(str);
+        }
+
+        return buffer.array();
     }
 
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
