@@ -23,17 +23,18 @@ import org.apache.commons.codec.binary.Hex;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     public static final String MIME_TEXT_PLAIN = "text/plain";
     public static final String TAG = "NfcDemo";
 
-    private TextView mTextView;
+    private TextView mTextView, mTvInfo, mTvAttr;
     private NfcAdapter mNfcAdapter;
 
     @Override
@@ -42,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mTextView = (TextView) findViewById(R.id.textView_explanation);
+        mTvInfo = (TextView) findViewById(R.id.textView_info);
+        mTvAttr = (TextView) findViewById(R.id.textView_attr);
 
         mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
@@ -77,135 +80,172 @@ public class MainActivity extends AppCompatActivity {
 
         mNfcAdapter.enableReaderMode(
                 this,
-                new NfcAdapter.ReaderCallback() {
-                    @Override
-                    public void onTagDiscovered(final Tag tag) {
-
-                        Log.d(TAG, "tag : " + tag.getClass().getName());
-                        Log.d(TAG, "tag : " + Arrays.toString(tag.getTechList()));
-
-                        // REGION SELECT eMoney
-
-//                        String AID = "0000000000000001";
-                        String hex = "00A40400080000000000000001";
-                        String commandWithoutSpace = hex.replace(" ", "");
-                        byte[] APDUCommand = new byte[0];
-                        try {
-                            APDUCommand = Hex.decodeHex(commandWithoutSpace.toCharArray());
-                        } catch (DecoderException e) {
-                            e.printStackTrace();
-                        }
-
-//                        byte[] APDUCommand = {
-//                                (byte) 0x00, // CLA Class
-//                                (byte) 0xA4, // INS Instruction
-//                                (byte) 0x04, // P1  Parameter 1
-//                                (byte) 0x00, // P2  Parameter 2and?
-//                                (byte) 0x08, // Length
-//                                (byte) 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,// AID
-//                        };
-
-                        IsoDep iso = IsoDep.get(tag);
-                        try {
-                            iso.connect();
-                            Log.d(TAG, "handleIntent: " + iso.isConnected());
-                            byte[] result = iso.transceive(APDUCommand);
-                            Log.d(TAG, "handleIntent result Select eMoney Bytes: " + Arrays.toString(result));
-                            Log.d(TAG, "handleIntent result Select eMoney Hex : " + Hex.encodeHexString(result));
-                            Log.d(TAG, "handleIntent result Select eMoney Hex : " + bytesToHex(result));
-                            Log.d(TAG, "handleIntent result Select eMoney String : " + new String(result, StandardCharsets.UTF_8));
-
-
-                            // REGION READ LAST BALANCE
-
-                            String hex2 = "00B500000A";
-                            String commandWithoutSpace2 = hex2.replace(" ", "");
-                            byte[] GET_LAST_BALANCE = new byte[0];
-                            try {
-                                GET_LAST_BALANCE = Hex.decodeHex(commandWithoutSpace2.toCharArray());
-                            } catch (DecoderException e) {
-                                e.printStackTrace();
-                            }
-
-//                            byte[] GET_LAST_BALANCE = {
-//                                    (byte) 0x00, // CLA Class
-//                                    (byte) 0xb5, // INS Instruction
-//                                    (byte) 0x00, // P1  Parameter 1
-//                                    (byte) 0x00, // P2  Parameter 2
-//                                    (byte) 0x0a  // LE  maximal number of bytes expected in result
-//                            };
-
-                            result = iso.transceive(GET_LAST_BALANCE);
-
-                            Log.d(TAG, "handleIntent result Last Balance Bytes : " + Arrays.toString(result));
-                            Log.d(TAG, "handleIntent result Last Balance Hex : " + Hex.encodeHexString(result));
-                            Log.d(TAG, "handleIntent result Last Balance Hex : " + bytesToHex(result));
-                            Log.d(TAG, "handleIntent result Last Balance String : " + new String(result, StandardCharsets.UTF_8));
-                            Log.d(TAG, "handleIntent result Last Balance BigInteger : " + new BigInteger(1, result).toString(16));
-                            Log.d(TAG, "handleIntent result Last Balance getDec : " + getDec(result));
-
-                            int len = result.length;
-                            if (!(result[len-2]==(byte)0x90&&result[len-1]==(byte) 0x00))
-                                throw new RuntimeException("could not retrieve msisdn");
-
-                            byte[] dataR = new byte[len-2];
-                            System.arraycopy(result, 0, dataR, 0, len-2);
-                            String str = new String(dataR).trim();
-                            Log.d(TAG, "handleIntent result Last Balance String : " + str);
-
-//                            StringBuilder sb = new StringBuilder();
-//                            final char[] xxxx = Hex.encodeHex(result);
-//                            for (char value : xxxx) {
-////                                System.out.println(xxxx[i]);
-//                                sb.append(value);
-//                            }
-//                            System.out.println("----------------------------------------------");
-//                            System.out.println(sb);
-//                            System.out.println("----------------------------------------------");
-//                            sb = new StringBuilder();
-//                            for (char c : xxxx) {
-//                                sb.append(Long.decode("0x" + c));
-////                                System.out.println(Long.decode("0x" + xxxx[i]));
-//                            }
-//                            System.out.println("----------------------------------------------");
-//                            System.out.println(sb);
-//                            System.out.println("----------------------------------------------");
-
-//                            for (int sfi = 1; sfi < 10; ++sfi ) {
-//                                for (int record = 1; record < 10; ++record) {
-//                                    byte[] cmd = new byte[0];
-//                                    cmd = GET_LAST_BALANCE;
-//                                    cmd[2] = (byte)(record & 0x0FF);
-//                                    cmd[3] |= (byte)((sfi << 3) & 0x0F8);
-//                                    result = iso.transceive(cmd);
-//                                    if ((result != null) && (result.length >=2)) {
-//                                        if ((result[result.length - 2] == (byte)0x90) && (result[result.length - 1] == (byte)0x00)) {
-//                                            // file exists and contains data
-//                                            byte[] data = Arrays.copyOf(result, result.length - 2);
-////                                                Log.d(TAG, "handleIntent result 1 : " + sfi + Arrays.toString(data));
-////                                                Log.d(TAG, "handleIntent result 1 : " + sfi  + Arrays.toString(Hex.encodeHex(data)));
-//                                            Log.d(TAG, "handleIntent result 1 enc : " + sfi + " : "  + Hex.encodeHexString(data));
-//                                            Log.d(TAG, "handleIntent result 1 : " + sfi + " : "  + new String(data, StandardCharsets.UTF_8));
-////                                                Log.d(TAG, "handleIntent result 1 : " + data[0] + "|" + data[1]);
-////                                                Log.d(TAG, "handleIntent result 1 : " + data[data.length - 2] + "|" + data[data.length - 1]);
-//                                            Log.d(TAG, "handleIntent result 1 bth : " + sfi + " : "  + bytesToHex(data));
-//                                        }
-//                                    }
-//                                }
-//                            }
-
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-
-
-                    }
-                },
+                this::handleTag,
                 NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
                 options
         );
     }
 
+    private void handleTag(Tag tag) {
+
+        IsoDep iso = IsoDep.get(tag);
+        try {
+            iso.connect();
+            String cardId = Hex.encodeHexString(iso.getTag().getId());
+            Log.d(TAG, "handleIntent result cardId : " + cardId);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        // REGION SELECT eMoney
+//        String AID = "0000000000000001";
+        String hex = "00A40400080000000000000001";
+        String commandWithoutSpace = hex.replace(" ", "");
+        byte[] APDUCommand = new byte[0];
+        try {
+            APDUCommand = Hex.decodeHex(commandWithoutSpace.toCharArray());
+        } catch (DecoderException e) {
+            e.printStackTrace();
+        }
+
+//        byte[] APDUCommand = {
+//                (byte) 0x00, // CLA Class
+//                (byte) 0xA4, // INS Instruction
+//                (byte) 0x04, // P1  Parameter 1
+//                (byte) 0x00, // P2  Parameter 2and?
+//                (byte) 0x08, // Length
+//                (byte) 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,// AID
+//        };
+
+        try {
+            byte[] result = iso.transceive(APDUCommand);
+            Log.d(TAG, "handleIntent result Select eMoney Bytes: " + printBytes(result));
+            Log.d(TAG, "handleIntent result Select eMoney Hex : " + Hex.encodeHexString(result));
+            // ENDREGION
+
+
+
+
+
+            // REGION READ LAST BALANCE
+            String hex2 = "00B500000A";
+            String commandWithoutSpace2 = hex2.replace(" ", "");
+            byte[] GET_LAST_BALANCE = new byte[0];
+            try {
+                GET_LAST_BALANCE = Hex.decodeHex(commandWithoutSpace2.toCharArray());
+            } catch (DecoderException e) {
+                e.printStackTrace();
+            }
+
+            result = iso.transceive(GET_LAST_BALANCE);
+
+            int len = result.length;
+            if (!(result[len - 2] == (byte) 0x90 && result[len - 1] == (byte) 0x00)) {
+                runOnUiThread(() -> mTextView.setText("Gagal membaca saldo"));
+                throw new RuntimeException("could not retrieve msisdn");
+            }
+
+            String hexString = Hex.encodeHexString(result);
+            int lastBalance = ParseHelper.fromLittleEndian(hexString.substring(0, 8));
+            runOnUiThread(() -> mTextView.setText("Saldo Anda : " + formatRupiah(lastBalance)));
+            Log.d(TAG, "handleIntent result GET_LAST_BALANCE Bytes : " + printBytes(result));
+            Log.d(TAG, "handleIntent result GET_LAST_BALANCE Hex : " + hexString);
+            Log.d(TAG, "handleIntent result GET_LAST_BALANCE Hex substring : " + hexString.substring(0, 8));
+            Log.d(TAG, "handleIntent result GET_LAST_BALANCE lastBalance : " + lastBalance);
+//            Log.d(TAG, "handleIntent result GET_LAST_BALANCE String : " + new String(result, StandardCharsets.UTF_8));
+            // ENDREGION
+
+
+
+
+
+
+            // REGION CARD INFO
+            String hex3 = "00b300003F";
+            String commandWithoutSpace3 = hex3.replace(" ", "");
+            byte[] GET_CARD_INFO = new byte[0];
+            try {
+                GET_CARD_INFO = Hex.decodeHex(commandWithoutSpace3.toCharArray());
+            } catch (DecoderException e) {
+                e.printStackTrace();
+            }
+
+            result = iso.transceive(GET_CARD_INFO);
+
+            len = result.length;
+            if (!(result[len - 2] == (byte) 0x90 && result[len - 1] == (byte) 0x00)) {
+                runOnUiThread(() -> mTvInfo.setText("Gagal membaca info"));
+                throw new RuntimeException("could not retrieve msisdn");
+            }
+
+            hexString = Hex.encodeHexString(result);
+            String info = hexString.substring(0, 16);
+            String formatedInfo = info.replaceAll("....", "$0 ");
+            runOnUiThread(() -> mTvInfo.setText(String.format("No Kartu : %s", formatedInfo)));
+            Log.d(TAG, "handleIntent result GET_CARD_INFO Bytes : " + printBytes(result));
+            Log.d(TAG, "handleIntent result GET_CARD_INFO Hex : " + hexString);
+            Log.d(TAG, "handleIntent result GET_CARD_INFO Card Number : " + info);
+            Log.d(TAG, "handleIntent result GET_CARD_INFO Card Number Formatted : " + formatedInfo);
+            Log.d(TAG, "handleIntent result GET_CARD_INFO String : " + new String(result, StandardCharsets.UTF_8));
+            // ENDREGION
+
+
+
+
+
+
+
+
+
+
+            // REGION CARD ATTR
+            String hex4 = "00F210000B";
+            String commandWithoutSpace4 = hex4.replace(" ", "");
+            byte[] GET_CARD_ATTR = new byte[0];
+            try {
+                GET_CARD_ATTR = Hex.decodeHex(commandWithoutSpace4.toCharArray());
+            } catch (DecoderException e) {
+                e.printStackTrace();
+            }
+
+            result = iso.transceive(GET_CARD_ATTR);
+
+            len = result.length;
+            if (!(result[len - 2] == (byte) 0x90 && result[len - 1] == (byte) 0x00)) {
+                runOnUiThread(() -> mTvAttr.setText("Gagal membaca attr"));
+                throw new RuntimeException("could not retrieve msisdn");
+            }
+
+            hexString = Hex.encodeHexString(result);
+            String finalHexString = hexString;
+//            runOnUiThread(() -> mTvAttr.setText(String.format("Attr Hex : %s", finalHexString)));
+            Log.d(TAG, "handleIntent result GET_CARD_ATTR Bytes : " + printBytes(result));
+            Log.d(TAG, "handleIntent result GET_CARD_ATTR Hex : " + hexString);
+            Log.d(TAG, "handleIntent result GET_CARD_ATTR String : " + new String(result, StandardCharsets.UTF_8));
+            // ENDREGION
+
+            iso.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String printBytes(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[ ");
+        for (byte b : bytes) {
+            sb.append(String.format("0x%02X ", b));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    public static String formatRupiah(int data) {
+        Locale localeID = new Locale("in", "ID");
+        NumberFormat formatRupiah = NumberFormat.getCurrencyInstance(localeID);
+        formatRupiah.setMaximumFractionDigits(0);
+        return formatRupiah.format(data);
+    }
 
 
     private String getHex(byte[] bytes) {
@@ -248,11 +288,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public static byte[] decode(String hex) {
-        String[] list=hex.split("(?<=\\G\\w{2})(?:\\s*)");
-        ByteBuffer buffer= ByteBuffer.allocate(list.length);
+        String[] list = hex.split("(?<=\\G\\w{2})(?:\\s*)");
+        ByteBuffer buffer = ByteBuffer.allocate(list.length);
         System.out.println(list.length);
-        for(String str: list) {
-            buffer.put(Byte.parseByte(str,16));
+        for (String str : list) {
+            buffer.put(Byte.parseByte(str, 16));
             System.out.println(str);
         }
 
@@ -260,9 +300,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     final protected static char[] hexArray = "0123456789ABCDEF".toCharArray();
+
     public static String bytesToHex(byte[] bytes) {
         char[] hexChars = new char[bytes.length * 2];
-        for ( int j = 0; j < bytes.length; j++ ) {
+        for (int j = 0; j < bytes.length; j++) {
             int v = bytes[j] & 0xFF;
             hexChars[j * 2] = hexArray[v >>> 4];
             hexChars[j * 2 + 1] = hexArray[v & 0x0F];
@@ -308,62 +349,8 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "Wrong mime type: " + type);
             }
         } else if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
-
-            // In case we would still use the Tech Discovered Intent
             Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-            String[] techList = tag.getTechList();
-            String searchedTech = Ndef.class.getName();
-
-            for (String tech : techList) {
-                Log.d(TAG, "handleIntent tech list : " + tech);
-//                if (searchedTech.equals(tech)) {
-//                    new NdefReaderTask().execute(tag);
-//                    break;
-//                } else if (tech.equals(NdefFormatable.class.getName())) {
-//                    NdefFormatable ndefFormatable = NdefFormatable.get(tag);
-//
-//                    if (ndefFormatable != null) {
-//                        try {
-//                            ndefFormatable.connect();
-//                            Log.d(TAG, "handleIntent: " + ndefFormatable.isConnected());
-//                            ndefFormatable.isConnected();
-////                            ndefFormatable.format(new NdefMessage(NdefRecord.createTextRecord("en", "ABCD")));
-//                        } catch (Exception e) {
-//                            e.printStackTrace();
-//                        } finally {
-//                            try {
-//                                ndefFormatable.close();
-//                            } catch (Exception e) {
-//                                e.printStackTrace();
-//                            }
-//                        }
-//                    }
-//                    break;
-//                }
-                if (tech.equals(IsoDep.class.getName())) {
-
-                    byte[] APDUCommand = {
-                            (byte) 0x00, // CLA Class
-                            (byte) 0xA4, // INS Instruction
-                            (byte) 0x04, // P1  Parameter 1
-                            (byte) 0x00, // P2  Parameter 2
-                            (byte) 0x0A, // Length
-                            0x63,0x64,0x63,0x00,0x00,0x00,0x00,0x32,0x32,0x31 // AID
-                    };
-
-                    IsoDep iso = IsoDep.get(tag);
-                    try {
-                        iso.connect();
-                        Log.d(TAG, "handleIntent: " + iso.isConnected());
-                        byte[] result = iso.transceive(APDUCommand);
-                        Log.d(TAG, "handleIntent result : " + Arrays.toString(result));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-
-                    break;
-                }
-            }
+            handleTag(tag);
         }
     }
 
@@ -376,7 +363,7 @@ public class MainActivity extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
 //        final PendingIntent pendingIntent = PendingIntent.getActivity(activity.getApplicationContext(), 0, intent, 0);
-    
+
         PendingIntent pendingIntent = null;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
             pendingIntent = PendingIntent.getActivity
@@ -385,7 +372,7 @@ public class MainActivity extends AppCompatActivity {
             pendingIntent = PendingIntent.getActivity
                     (activity.getApplicationContext(), 0, intent, PendingIntent.FLAG_ONE_SHOT);
         }
-        
+
         IntentFilter[] filters = new IntentFilter[1];
         String[][] techList = new String[][]{};
 
@@ -411,7 +398,6 @@ public class MainActivity extends AppCompatActivity {
      * Background task for reading the data. Do not block the UI thread while reading.
      *
      * @author Ralf Wondratschek
-     *
      */
     private class NdefReaderTask extends AsyncTask<Tag, Void, String> {
 
