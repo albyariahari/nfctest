@@ -86,6 +86,29 @@ public class MainActivity extends AppCompatActivity {
         );
     }
 
+    @Override
+    protected void onPause() {
+        /**
+         * Call this before onPause, otherwise an IllegalArgumentException is thrown as well.
+         */
+        stopForegroundDispatch(this, mNfcAdapter);
+
+        super.onPause();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        /**
+         * This method gets called, when a new Intent gets associated with the current activity instance.
+         * Instead of creating a new activity, onNewIntent will be called. For more information have a look
+         * at the documentation.
+         *
+         * In our case this method gets called, when the user attaches a Tag to the device.
+         */
+        super.onNewIntent(intent);
+        handleIntent(intent);
+    }
+
     private void handleTag(Tag tag) {
 
         IsoDep iso = IsoDep.get(tag);
@@ -95,6 +118,10 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "handleIntent result cardId : " + cardId);
         } catch (IOException e) {
             e.printStackTrace();
+        }
+
+        if (!iso.isConnected()) {
+            return;
         }
 
         // REGION SELECT eMoney
@@ -311,47 +338,42 @@ public class MainActivity extends AppCompatActivity {
         return new String(hexChars);
     }
 
-    @Override
-    protected void onPause() {
-        /**
-         * Call this before onPause, otherwise an IllegalArgumentException is thrown as well.
-         */
-        stopForegroundDispatch(this, mNfcAdapter);
-
-        super.onPause();
-    }
-
-    @Override
-    protected void onNewIntent(Intent intent) {
-        /**
-         * This method gets called, when a new Intent gets associated with the current activity instance.
-         * Instead of creating a new activity, onNewIntent will be called. For more information have a look
-         * at the documentation.
-         *
-         * In our case this method gets called, when the user attaches a Tag to the device.
-         */
-        super.onNewIntent(intent);
-        handleIntent(intent);
-//        super.onNewIntent(intent);
-    }
-
     private void handleIntent(Intent intent) {
+
+//        setupForegroundDispatch(this, mNfcAdapter);
+
         String action = intent.getAction();
-        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
-
-            String type = intent.getType();
-            if (MIME_TEXT_PLAIN.equals(type)) {
-
-                Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
-                new NdefReaderTask().execute(tag);
-
-            } else {
-                Log.d(TAG, "Wrong mime type: " + type);
-            }
-        } else if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
+        if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
             Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
             handleTag(tag);
         }
+
+
+//        Bundle options = new Bundle();
+//        options.putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 500);
+//
+//        mNfcAdapter.enableReaderMode(
+//                this,
+//                this::handleTag,
+//                NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+//                options
+//        );
+//        String action = intent.getAction();
+//        if (NfcAdapter.ACTION_NDEF_DISCOVERED.equals(action)) {
+//
+//            String type = intent.getType();
+//            if (MIME_TEXT_PLAIN.equals(type)) {
+//
+//                Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+//                new NdefReaderTask().execute(tag);
+//
+//            } else {
+//                Log.d(TAG, "Wrong mime type: " + type);
+//            }
+//        } else if (NfcAdapter.ACTION_TECH_DISCOVERED.equals(action)) {
+//            Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+//            handleTag(tag);
+//        }
     }
 
     /**
